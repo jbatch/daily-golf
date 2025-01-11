@@ -1,106 +1,25 @@
 import React, { useState, useCallback } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-
-// Constants and Types
-const GRID_SIZE = 8;
-
-enum TerrainType {
-  EMPTY = 0,
-  FAIRWAY = 1,
-  ROUGH = 2,
-  SAND = 3,
-  WATER = 4,
-  TREES = 5,
-  TEE = 6,
-  HOLE = 7,
-}
-
-const TerrainColors: Record<TerrainType, string> = {
-  [TerrainType.EMPTY]: "#f3f4f6", // gray-100
-  [TerrainType.FAIRWAY]: "#86efac", // green-300
-  [TerrainType.ROUGH]: "#16a34a", // green-600
-  [TerrainType.SAND]: "#fef08a", // yellow-200
-  [TerrainType.WATER]: "#60a5fa", // blue-400
-  [TerrainType.TREES]: "#166534", // green-800
-  [TerrainType.TEE]: "#f87171", // red-400
-  [TerrainType.HOLE]: "#1f2937", // gray-800
-};
-
-interface CubeCoord {
-  q: number;
-  r: number;
-  s: number;
-}
-
-interface Point {
-  x: number;
-  y: number;
-}
-
-interface CourseState {
-  grid: Record<string, TerrainType>;
-  start: CubeCoord;
-  end: CubeCoord;
-  seed: number;
-}
-
-// Hex Grid Utilities
-const cubeToPixel = (q: number, r: number, size: number): Point => {
-  const x = size * ((3 / 2) * q);
-  const y = size * ((Math.sqrt(3) / 2) * q + Math.sqrt(3) * r);
-  return { x, y };
-};
-
-const getHexCorners = (center: Point, size: number): Point[] => {
-  const corners: Point[] = [];
-  for (let i = 0; i < 6; i++) {
-    const angle = ((2 * Math.PI) / 6) * i;
-    corners.push({
-      x: center.x + size * Math.cos(angle),
-      y: center.y + size * Math.sin(angle),
-    });
-  }
-  return corners;
-};
-
-const getHexNeighbors = (q: number, r: number, s: number): CubeCoord[] => {
-  const directions: CubeCoord[] = [
-    { q: 1, r: -1, s: 0 },
-    { q: 1, r: 0, s: -1 },
-    { q: 0, r: 1, s: -1 },
-    { q: -1, r: 1, s: 0 },
-    { q: -1, r: 0, s: 1 },
-    { q: 0, r: -1, s: 1 },
-  ];
-  return directions.map((dir) => ({
-    q: q + dir.q,
-    r: r + dir.r,
-    s: s + dir.s,
-  }));
-};
-
-// Bezier curve calculation
-const bezierPoint = (points: CubeCoord[], t: number): CubeCoord => {
-  if (points.length === 1) return points[0];
-
-  const newPoints: CubeCoord[] = [];
-  for (let i = 0; i < points.length - 1; i++) {
-    newPoints.push({
-      q: points[i].q * (1 - t) + points[i + 1].q * t,
-      r: points[i].r * (1 - t) + points[i + 1].r * t,
-      s: points[i].s * (1 - t) + points[i + 1].s * t,
-    });
-  }
-
-  return bezierPoint(newPoints, t);
-};
+import { GRID_SIZE, TerrainType, TerrainColors, CourseState } from "./types";
+import {
+  cubeToPixel,
+  getHexCorners,
+  bezierPoint,
+  getHexNeighbors,
+} from "./hexUtils";
+import {
+  generateStartAndEnd,
+  generateControlPoints,
+  generateFairwaySegments,
+  generateGreen,
+  generateHazards,
+} from "./courseGeneration";
+import { noise2D } from "./noiseUtils";
 
 const CourseGenerator: React.FC = () => {
   const [course, setCourse] = useState<CourseState | null>(null);
-  const [seed, setSeed] = useState<number>(() =>
-    Math.floor(Math.random() * 1000000)
-  );
+  const [seed, setSeed] = useState(() => Math.floor(Math.random() * 1000000));
 
   const generateCourse = useCallback((): CourseState => {
     // Initialize empty grid
@@ -114,96 +33,59 @@ const CourseGenerator: React.FC = () => {
       }
     }
 
-    // Define start and end points
-    const start: CubeCoord = { q: 0, r: GRID_SIZE - 1, s: -GRID_SIZE + 1 };
-    const end: CubeCoord = {
-      q: Math.floor(Math.random() * 3) - 1,
-      r: -GRID_SIZE + 1,
-      s: GRID_SIZE - 1,
-    };
+    // Generate start and end points
+    const { start, end } = generateStartAndEnd();
 
-    // Generate control points for a more interesting fairway path
-    const numIntermediatePoints = 3 + Math.floor(Math.random() * 3); // 3-5 intermediate points
-    const controlPoints: CubeCoord[] = [start];
+    // Generate control points for the fairway
+    const controlPoints = generateControlPoints(start, end);
 
-    // Create a series of intermediate points with more variation
-    for (let i = 1; i <= numIntermediatePoints; i++) {
-      const progress = i / (numIntermediatePoints + 1);
-      const baseR = start.r + (end.r - start.r) * progress;
+    // Create fairway with strategic gaps
+    const processedHexes = new Set<string>();
+    const fairwaySegments = generateFairwaySegments(seed);
 
-      // Add more lateral variation as we get towards the middle
-      const lateralVariation = Math.sin(progress * Math.PI) * 4;
-      const pointQ = Math.floor(
-        start.q +
-          (end.q - start.q) * progress +
-          (Math.random() * 2 - 1) * lateralVariation
-      );
-      const pointR = Math.floor(baseR + (Math.random() * 2 - 1) * 2);
+    // Generate fairway along segments
+    fairwaySegments.forEach((segment) => {
+      for (let t = segment.start; t <= segment.end; t += 0.01) {
+        const point = bezierPoint(controlPoints, t);
+        const q = Math.round(point.q);
+        const r = Math.round(point.r);
+        const s = -q - r;
+        const key = `${q},${r},${s}`;
 
-      controlPoints.push({
-        q: pointQ,
-        r: pointR,
-        s: -pointQ - pointR,
-      });
-    }
+        if (grid[key] === undefined) continue;
 
-    controlPoints.push(end);
+        // Check if we're near a control point for landing zones
+        const isLandingZone = controlPoints.some(
+          (cp) => Math.abs(cp.q - q) + Math.abs(cp.r - r) < 2
+        );
 
-    // Create fairway along path with varying width
-    for (let t = 0; t <= 1; t += 0.02) {
-      // Smaller steps for smoother path
-      const point = bezierPoint(controlPoints, t);
-      const q = Math.round(point.q);
-      const r = Math.round(point.r);
-      const s = -q - r;
+        // Add some randomness to fairway width
+        const fairwayVariation = noise2D(t * 5, 0, seed) > 0.7;
 
-      // Vary fairway width based on position and some randomization
-      const widthVariation = Math.sin(t * Math.PI * 2) * 0.5 + 1.5; // Oscillates between 1 and 2
-      const fairwayWidth = Math.ceil(widthVariation + Math.random() * 0.5);
+        // Basic fairway hex
+        grid[key] = TerrainType.FAIRWAY;
+        processedHexes.add(key);
 
-      // Create wider landing zones near control points
-      const nearControlPoint = controlPoints.some(
-        (cp) => Math.abs(cp.q - q) + Math.abs(cp.r - r) < 3
-      );
-
-      const width = nearControlPoint ? fairwayWidth + 1 : fairwayWidth;
-
-      // Expand fairway in rings up to the calculated width
-      let hexesToProcess = [{ q, r, s }];
-      const processed = new Set<string>();
-
-      for (let ring = 0; ring < width; ring++) {
-        const nextRing: CubeCoord[] = [];
-
-        hexesToProcess.forEach((hex) => {
-          const key = `${hex.q},${hex.r},${hex.s}`;
-          if (!processed.has(key) && grid[key] !== undefined) {
-            grid[key] = TerrainType.FAIRWAY;
-            processed.add(key);
-
-            // Add neighbors to next ring
-            getHexNeighbors(hex.q, hex.r, hex.s).forEach((neighbor) => {
-              const neighborKey = `${neighbor.q},${neighbor.r},${neighbor.s}`;
-              if (!processed.has(neighborKey)) {
-                nextRing.push(neighbor);
+        // Add wider areas for landing zones and random variations
+        if (isLandingZone || fairwayVariation) {
+          getHexNeighbors({ q, r, s }).forEach((neighbor) => {
+            const nKey = `${neighbor.q},${neighbor.r},${neighbor.s}`;
+            if (grid[nKey] !== undefined && !processedHexes.has(nKey)) {
+              if (noise2D(neighbor.q / 2, neighbor.r / 2, seed) > 0.3) {
+                grid[nKey] = TerrainType.FAIRWAY;
+                processedHexes.add(nKey);
               }
-            });
-          }
-        });
-
-        hexesToProcess = nextRing;
-      }
-    }
-
-    // Add hazards
-    Object.entries(grid).forEach(([key, value]) => {
-      if (value === TerrainType.ROUGH) {
-        const rand = Math.random();
-        if (rand < 0.2) grid[key] = TerrainType.TREES;
-        else if (rand < 0.3) grid[key] = TerrainType.SAND;
-        else if (rand < 0.35) grid[key] = TerrainType.WATER;
+            }
+          });
+        }
       }
     });
+
+    // Generate green area
+    generateGreen(grid, end);
+
+    // Generate hazards
+    generateHazards(grid, seed);
 
     // Place tee and hole
     grid[`${start.q},${start.r},${start.s}`] = TerrainType.TEE;
@@ -232,7 +114,7 @@ const CourseGenerator: React.FC = () => {
             <div className="relative w-full aspect-square max-w-2xl">
               <svg viewBox="-150 -150 300 300" className="w-full h-full">
                 {Object.entries(course.grid).map(([key, value]) => {
-                  const [q, r, s] = key.split(",").map(Number);
+                  const [q, r] = key.split(",").map(Number);
                   const center = cubeToPixel(q, r, 10);
                   const corners = getHexCorners(center, 10);
 
