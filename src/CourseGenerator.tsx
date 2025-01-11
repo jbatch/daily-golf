@@ -122,41 +122,76 @@ const CourseGenerator: React.FC = () => {
       s: GRID_SIZE - 1,
     };
 
-    // Generate control points for the fairway path
-    const controlPoints: CubeCoord[] = [
-      start,
-      {
-        q: start.q + Math.floor(Math.random() * 3) - 1,
-        r: Math.floor(start.r * 0.3),
-        s: -start.q - Math.floor(start.r * 0.3),
-      },
-      {
-        q: end.q + Math.floor(Math.random() * 3) - 1,
-        r: Math.floor(end.r * 0.7),
-        s: -end.q - Math.floor(end.r * 0.7),
-      },
-      end,
-    ];
+    // Generate control points for a more interesting fairway path
+    const numIntermediatePoints = 3 + Math.floor(Math.random() * 3); // 3-5 intermediate points
+    const controlPoints: CubeCoord[] = [start];
 
-    // Create fairway along path
-    for (let t = 0; t <= 1; t += 0.05) {
+    // Create a series of intermediate points with more variation
+    for (let i = 1; i <= numIntermediatePoints; i++) {
+      const progress = i / (numIntermediatePoints + 1);
+      const baseR = start.r + (end.r - start.r) * progress;
+
+      // Add more lateral variation as we get towards the middle
+      const lateralVariation = Math.sin(progress * Math.PI) * 4;
+      const pointQ = Math.floor(
+        start.q +
+          (end.q - start.q) * progress +
+          (Math.random() * 2 - 1) * lateralVariation
+      );
+      const pointR = Math.floor(baseR + (Math.random() * 2 - 1) * 2);
+
+      controlPoints.push({
+        q: pointQ,
+        r: pointR,
+        s: -pointQ - pointR,
+      });
+    }
+
+    controlPoints.push(end);
+
+    // Create fairway along path with varying width
+    for (let t = 0; t <= 1; t += 0.02) {
+      // Smaller steps for smoother path
       const point = bezierPoint(controlPoints, t);
       const q = Math.round(point.q);
       const r = Math.round(point.r);
       const s = -q - r;
 
-      // Create wider fairway
-      const neighbors = getHexNeighbors(q, r, s);
-      neighbors.forEach(({ q: nq, r: nr, s: ns }) => {
-        const key = `${nq},${nr},${ns}`;
-        if (grid[key] !== undefined) {
-          grid[key] = TerrainType.FAIRWAY;
-        }
-      });
+      // Vary fairway width based on position and some randomization
+      const widthVariation = Math.sin(t * Math.PI * 2) * 0.5 + 1.5; // Oscillates between 1 and 2
+      const fairwayWidth = Math.ceil(widthVariation + Math.random() * 0.5);
 
-      const key = `${q},${r},${s}`;
-      if (grid[key] !== undefined) {
-        grid[key] = TerrainType.FAIRWAY;
+      // Create wider landing zones near control points
+      const nearControlPoint = controlPoints.some(
+        (cp) => Math.abs(cp.q - q) + Math.abs(cp.r - r) < 3
+      );
+
+      const width = nearControlPoint ? fairwayWidth + 1 : fairwayWidth;
+
+      // Expand fairway in rings up to the calculated width
+      let hexesToProcess = [{ q, r, s }];
+      const processed = new Set<string>();
+
+      for (let ring = 0; ring < width; ring++) {
+        const nextRing: CubeCoord[] = [];
+
+        hexesToProcess.forEach((hex) => {
+          const key = `${hex.q},${hex.r},${hex.s}`;
+          if (!processed.has(key) && grid[key] !== undefined) {
+            grid[key] = TerrainType.FAIRWAY;
+            processed.add(key);
+
+            // Add neighbors to next ring
+            getHexNeighbors(hex.q, hex.r, hex.s).forEach((neighbor) => {
+              const neighborKey = `${neighbor.q},${neighbor.r},${neighbor.s}`;
+              if (!processed.has(neighborKey)) {
+                nextRing.push(neighbor);
+              }
+            });
+          }
+        });
+
+        hexesToProcess = nextRing;
       }
     }
 
