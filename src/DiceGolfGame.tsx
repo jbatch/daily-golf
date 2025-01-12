@@ -36,6 +36,14 @@ const DiceGolfGame = () => {
     });
   };
 
+  const getHexDistance = (a: CubeCoord, b: CubeCoord): number => {
+    return Math.max(
+      Math.abs(a.q - b.q),
+      Math.abs(a.r - b.r),
+      Math.abs(a.s - b.s)
+    );
+  };
+
   const rollDice = () => {
     if (!course || !gameState || rolling) return;
 
@@ -85,43 +93,47 @@ const DiceGolfGame = () => {
     distance: number,
     courseData: CourseState
   ): CubeCoord[] => {
-    const visited = new Set<string>();
     const validMoves: CubeCoord[] = [];
-    const queue: { pos: CubeCoord; dist: number }[] = [
-      { pos: position, dist: 0 },
-    ];
 
-    while (queue.length > 0) {
-      const current = queue.shift()!;
-      const key = `${current.pos.q},${current.pos.r},${current.pos.s}`;
-
-      if (visited.has(key)) continue;
-      visited.add(key);
-
-      if (current.dist === distance) {
-        const terrainType = courseData.grid[key];
-        if (terrainType !== TerrainType.WATER && terrainType !== undefined) {
-          validMoves.push(current.pos);
-        }
-        continue;
+    // Always add adjacent hexes (putting)
+    const neighbors = getHexNeighbors(position);
+    for (const neighbor of neighbors) {
+      const neighborKey = `${neighbor.q},${neighbor.r},${neighbor.s}`;
+      const terrainType = courseData.grid[neighborKey];
+      if (terrainType !== undefined && terrainType !== TerrainType.WATER) {
+        validMoves.push(neighbor);
       }
+    }
 
-      if (current.dist > distance) continue;
+    // Find all hexes exactly 'distance' away
+    for (let dq = -distance; dq <= distance; dq++) {
+      for (let dr = -distance; dr <= distance; dr++) {
+        const ds = -(dq + dr);
+        if (Math.max(Math.abs(dq), Math.abs(dr), Math.abs(ds)) === distance) {
+          const q = position.q + dq;
+          const r = position.r + dr;
+          const s = position.s + ds;
 
-      const neighbors = getHexNeighbors(current.pos);
-      for (const neighbor of neighbors) {
-        const neighborKey = `${neighbor.q},${neighbor.r},${neighbor.s}`;
-        const terrainType = courseData.grid[neighborKey];
+          // Check if this is a valid hex at exactly 'distance' away
+          const coord = { q: q, r: r, s: s };
+          const key = `${q},${r},${s}`;
+          const terrainType = courseData.grid[key];
 
-        // Skip if out of bounds or invalid terrain
-        if (terrainType === undefined) continue;
-        if (
-          terrainType === TerrainType.TREES &&
-          courseData.grid[key] !== TerrainType.FAIRWAY
-        )
-          continue;
+          // Skip if out of bounds or water
+          if (terrainType === undefined || terrainType === TerrainType.WATER)
+            continue;
 
-        queue.push({ pos: neighbor, dist: current.dist + 1 });
+          // Skip if trying to go through trees from non-fairway
+          const currentTerrainType =
+            courseData.grid[`${position.q},${position.r},${position.s}`];
+          if (
+            terrainType === TerrainType.TREES &&
+            currentTerrainType !== TerrainType.FAIRWAY
+          )
+            continue;
+
+          validMoves.push(coord);
+        }
       }
     }
 
@@ -137,10 +149,12 @@ const DiceGolfGame = () => {
       )
     ) {
       const newPosition = coord;
-      const isAtHole =
-        newPosition.q === course.end.q &&
-        newPosition.r === course.end.r &&
-        newPosition.s === course.end.s;
+      const distToHole = getHexDistance(newPosition, course.end);
+      const isOvershootSink =
+        distToHole === 1 && // Landed next to hole
+        getHexDistance(gameState.playerPosition, course.end) ===
+          gameState.lastRoll! - 1;
+      const isAtHole = distToHole === 0 || isOvershootSink;
 
       setGameState((prev) => ({
         ...prev!,
