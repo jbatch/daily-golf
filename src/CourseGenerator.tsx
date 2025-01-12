@@ -154,7 +154,19 @@ const CourseGenerator: React.FC = () => {
           )}
 
           {course && (
-            <div className="text-sm text-gray-500">Seed: {course.seed}</div>
+            <div className="flex flex-col gap-2 items-center">
+              <div className="text-sm text-gray-500">Seed: {course.seed}</div>
+              <Button
+                onClick={() => {
+                  const courseJson = JSON.stringify(course, null, 2);
+                  navigator.clipboard.writeText(courseJson);
+                }}
+                variant="outline"
+                className="w-48"
+              >
+                Copy Course Data
+              </Button>
+            </div>
           )}
         </div>
       </CardContent>
