@@ -1,6 +1,5 @@
 import { useState, useCallback } from "react";
 import { TerrainType, CubeCoord, CourseState } from "./types";
-import { getHexNeighbors } from "./hexUtils";
 
 export interface GameState {
   playerPosition: CubeCoord;
@@ -80,16 +79,6 @@ export const calculateValidMoves = (
     course.grid[`${position.q},${position.r},${position.s}`];
   const isOnFairway = currentTerrainType === TerrainType.FAIRWAY;
 
-  // Always add adjacent hexes (putting)
-  const neighbors = getHexNeighbors(position);
-  for (const neighbor of neighbors) {
-    const neighborKey = `${neighbor.q},${neighbor.r},${neighbor.s}`;
-    const terrainType = course.grid[neighborKey];
-    if (terrainType !== undefined && terrainType !== TerrainType.WATER) {
-      validMoves.push(neighbor);
-    }
-  }
-
   // Find all hexes exactly 'distance' away
   for (let dq = -distance; dq <= distance; dq++) {
     for (let dr = -distance; dr <= distance; dr++) {
@@ -136,9 +125,9 @@ export const checkGameOver = (
   distance: number | null,
   playerPosition: CubeCoord,
   end: CubeCoord
-): boolean => {
+): { gameOver: boolean; isOvershootSink: boolean } => {
   const distToHole = getHexDistance(newPosition, end);
-  if (distToHole === 0) return true;
+  if (distToHole === 0) return { gameOver: true, isOvershootSink: false };
 
   const isOvershootSink =
     distance !== null &&
@@ -155,12 +144,12 @@ export const checkGameOver = (
       isOvershootSink,
     })}`
   );
-  return isOvershootSink;
+  return { gameOver: isOvershootSink, isOvershootSink };
 };
 
 // Custom hook for game logic
 export const useDiceGolf = (initialCourse: CourseState) => {
-  const [course] = useState<CourseState>(initialCourse);
+  const [course, setCourse] = useState<CourseState>(initialCourse);
   const [gameState, setGameState] = useState<GameState>(() => ({
     playerPosition: initialCourse.start,
     strokes: 0,
@@ -215,22 +204,39 @@ export const useDiceGolf = (initialCourse: CourseState) => {
     }, 500);
   }, [course, gameState, rolling]);
 
+  const takePutt = useCallback(() => {
+    if (gameState.gameOver || gameState.validMoves.length > 0) return;
+
+    // Calculate valid moves for a distance of 1
+    const validMoves = calculateValidMoves(gameState.playerPosition, 1, course);
+
+    setGameState((prev) => ({
+      ...prev,
+      lastRoll: 1,
+      validMoves,
+    }));
+  }, [
+    course,
+    gameState.gameOver,
+    gameState.validMoves.length,
+    gameState.playerPosition,
+  ]);
+
   const moveToHex = useCallback(
     (coord: CubeCoord) => {
       if (!isValidMove(coord, gameState.validMoves)) return;
 
       const newPosition = coord;
-      const gameOver = checkGameOver(
+      const { gameOver, isOvershootSink } = checkGameOver(
         newPosition,
         gameState.lastRoll,
         gameState.playerPosition,
         course.end
       );
-      console.log({ gameOver });
 
       setGameState((prev) => ({
         ...prev,
-        playerPosition: newPosition,
+        playerPosition: isOvershootSink ? course.end : newPosition,
         strokes: prev.strokes + 1,
         validMoves: [],
         lastRoll: null,
@@ -261,14 +267,28 @@ export const useDiceGolf = (initialCourse: CourseState) => {
     }));
   }, [gameState.gameOver, gameState.lastRoll, gameState.mulligansLeft]);
 
+  const resetGame = useCallback((newCourse: CourseState) => {
+    setGameState({
+      playerPosition: newCourse.start,
+      strokes: 0,
+      mulligansLeft: 6,
+      lastRoll: null,
+      validMoves: [],
+      gameOver: false,
+    });
+    setCourse(newCourse);
+  }, []);
+
   return {
     course,
     gameState,
     rolling,
+    resetGame,
     actions: {
       rollDice,
       moveToHex,
       useMulligan,
+      takePutt,
     },
   };
 };

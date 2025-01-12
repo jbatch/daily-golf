@@ -78,14 +78,6 @@ describe("Valid Move Calculation", () => {
     mockCourse = createMockCourse();
   });
 
-  it("always includes adjacent hexes (putting)", () => {
-    const moves = calculateValidMoves(mockCourse.start, 4, mockCourse);
-    const neighbors = moves.filter(
-      (move) => getHexDistance(mockCourse.start, move) === 1
-    );
-    expect(neighbors.length).toBeGreaterThan(0);
-  });
-
   it("excludes water hazards", () => {
     const moves = calculateValidMoves(mockCourse.start, 2, mockCourse);
     const containsWaterHex = containsPos(moves, { q: 1, r: 1, s: -2 });
@@ -129,7 +121,7 @@ describe("Valid Move Calculation", () => {
     const distance = 3;
     // Calc moves with tree blocking
     const moves = calculateValidMoves(mockCourse.start, distance, mockCourse);
-    expect(moves.length).toBe(22);
+    expect(moves.length).toBe(16);
 
     expect(containsPos(moves, { q: -2, r: -1, s: 3 })).toBe(false);
     expect(containsPos(moves, { q: -1, r: -2, s: 3 })).toBe(false);
@@ -141,7 +133,7 @@ describe("Valid Move Calculation", () => {
       distance,
       mockCourse
     );
-    expect(newMoves.length).toBe(24);
+    expect(newMoves.length).toBe(18);
 
     expect(containsPos(newMoves, { q: -2, r: -1, s: 3 })).toBe(true);
     expect(containsPos(newMoves, { q: -1, r: -2, s: 3 })).toBe(true);
@@ -152,7 +144,7 @@ describe("Game Over Conditions", () => {
   const mockCourse = createMockCourse();
 
   it("detects landing directly on hole", () => {
-    const gameOver = checkGameOver(
+    const { gameOver } = checkGameOver(
       mockCourse.end,
       4,
       mockCourse.start,
@@ -173,21 +165,31 @@ describe("Game Over Conditions", () => {
     const overshot1: CubeCoord = { q: 3, r: -2, s: -1 }; // One beyond hole
     const overshot2: CubeCoord = { q: 3, r: -1, s: -2 }; // One beyond hole
     const startPos: CubeCoord = { q: 0, r: 0, s: 0 }; // 2 away from hole
-    expect(checkGameOver(overshot1, 3, startPos, mockCourse.end)).toBe(true);
-    expect(checkGameOver(overshot2, 3, startPos, mockCourse.end)).toBe(true);
+    expect(checkGameOver(overshot1, 3, startPos, mockCourse.end)).toStrictEqual(
+      {
+        gameOver: true,
+        isOvershootSink: true,
+      }
+    );
+    expect(checkGameOver(overshot2, 3, startPos, mockCourse.end)).toStrictEqual(
+      {
+        gameOver: true,
+        isOvershootSink: true,
+      }
+    );
     // Other shots that are one away from hole d=2 don't overshoot
     expect(
-      checkGameOver({ q: 2, r: -2, s: 0 }, 2, startPos, mockCourse.end)
+      checkGameOver({ q: 2, r: -2, s: 0 }, 2, startPos, mockCourse.end).gameOver
     ).toBe(false);
     expect(
-      checkGameOver({ q: 2, r: 0, s: -2 }, 2, startPos, mockCourse.end)
+      checkGameOver({ q: 2, r: 0, s: -2 }, 2, startPos, mockCourse.end).gameOver
     ).toBe(false);
     // Shots that are one away from hole but are d=1 don't overshoot
     expect(
-      checkGameOver({ q: 1, r: -1, s: 0 }, 1, startPos, mockCourse.end)
+      checkGameOver({ q: 1, r: -1, s: 0 }, 1, startPos, mockCourse.end).gameOver
     ).toBe(false);
     expect(
-      checkGameOver({ q: 1, r: 0, s: -1 }, 1, startPos, mockCourse.end)
+      checkGameOver({ q: 1, r: 0, s: -1 }, 1, startPos, mockCourse.end).gameOver
     ).toBe(false);
   });
 
@@ -204,26 +206,42 @@ describe("Game Over Conditions", () => {
     const overshot2: CubeCoord = { q: 3, r: -3, s: 0 }; // One beyond hole
     const overshot3: CubeCoord = { q: 3, r: -2, s: -1 }; // One beyond hole
     const startPos: CubeCoord = { q: 0, r: 0, s: 0 }; // 2 away from hole
-    expect(checkGameOver(overshot1, 3, startPos, mockCourse.end)).toBe(true);
-    expect(checkGameOver(overshot2, 3, startPos, mockCourse.end)).toBe(true);
-    expect(checkGameOver(overshot3, 3, startPos, mockCourse.end)).toBe(true);
+    expect(checkGameOver(overshot1, 3, startPos, mockCourse.end)).toStrictEqual(
+      {
+        gameOver: true,
+        isOvershootSink: true,
+      }
+    );
+    expect(checkGameOver(overshot2, 3, startPos, mockCourse.end)).toStrictEqual(
+      {
+        gameOver: true,
+        isOvershootSink: true,
+      }
+    );
+    expect(checkGameOver(overshot3, 3, startPos, mockCourse.end)).toStrictEqual(
+      {
+        gameOver: true,
+        isOvershootSink: true,
+      }
+    );
     // Other shots that are one away from hole d=2 don't overshoot
     expect(
-      checkGameOver({ q: 1, r: -2, s: 1 }, 2, startPos, mockCourse.end)
+      checkGameOver({ q: 1, r: -2, s: 1 }, 2, startPos, mockCourse.end).gameOver
     ).toBe(false);
     expect(
       checkGameOver({ q: 2, r: -1, s: -1 }, 2, startPos, mockCourse.end)
+        .gameOver
     ).toBe(false);
     // Shots that are one away from hole but are d=1 don't overshoot
     expect(
-      checkGameOver({ q: 1, r: -1, s: 0 }, 1, startPos, mockCourse.end)
+      checkGameOver({ q: 1, r: -1, s: 0 }, 1, startPos, mockCourse.end).gameOver
     ).toBe(false);
   });
 
   it("rejects invalid overshoot", () => {
     const overshot: CubeCoord = { q: 3, r: -1, s: -2 };
     const startPos: CubeCoord = { q: 0, r: 0, s: 0 }; // Too far for valid overshoot
-    const gameOver = checkGameOver(overshot, 4, startPos, mockCourse.end);
+    const { gameOver } = checkGameOver(overshot, 4, startPos, mockCourse.end);
     expect(gameOver).toBe(false);
   });
 });

@@ -1,8 +1,8 @@
-import { GRID_SIZE, TerrainType, CubeCoord } from "./types";
-import { getHexNeighbors } from "./hexUtils";
+import { GRID_SIZE, TerrainType, CubeCoord, CourseState } from "./types";
+import { bezierPoint, getHexNeighbors } from "./hexUtils";
 import { noise2D, randomFromSeed } from "./noiseUtils";
 
-export const generateStartAndEnd = (): { start: CubeCoord; end: CubeCoord } => {
+const generateStartAndEnd = (): { start: CubeCoord; end: CubeCoord } => {
   // Define start point
   const start: CubeCoord = { q: 0, r: GRID_SIZE - 1, s: -GRID_SIZE + 1 };
 
@@ -36,7 +36,7 @@ export const generateStartAndEnd = (): { start: CubeCoord; end: CubeCoord } => {
   return { start, end };
 };
 
-export const generateControlPoints = (
+const generateControlPoints = (
   start: CubeCoord,
   end: CubeCoord
 ): CubeCoord[] => {
@@ -65,7 +65,7 @@ export const generateControlPoints = (
   return controlPoints;
 };
 
-export const generateFairwaySegments = (
+const generateFairwaySegments = (
   seed: number
 ): { start: number; end: number }[] => {
   const segments: { start: number; end: number }[] = [];
@@ -94,7 +94,7 @@ export const generateFairwaySegments = (
   return segments;
 };
 
-export const generateGreen = (
+const generateGreen = (
   grid: Record<string, TerrainType>,
   end: CubeCoord
 ): void => {
@@ -124,7 +124,7 @@ export const generateGreen = (
   }
 };
 
-export const generateHazards = (
+const generateHazards = (
   grid: Record<string, TerrainType>,
   seed: number
 ): void => {
@@ -197,4 +197,77 @@ export const generateHazards = (
       }
     }
   });
+};
+
+export const generateCourse = (seed: number): CourseState => {
+  // Initialize empty grid
+  const grid: Record<string, TerrainType> = {};
+  for (let q = -GRID_SIZE; q <= GRID_SIZE; q++) {
+    for (let r = -GRID_SIZE; r <= GRID_SIZE; r++) {
+      const s = -q - r;
+      if (Math.abs(s) <= GRID_SIZE) {
+        grid[`${q},${r},${s}`] = TerrainType.ROUGH;
+      }
+    }
+  }
+
+  // Generate start and end points
+  const { start, end } = generateStartAndEnd();
+
+  // Generate control points for the fairway
+  const controlPoints = generateControlPoints(start, end);
+
+  // Create fairway with strategic gaps
+  const processedHexes = new Set<string>();
+  const fairwaySegments = generateFairwaySegments(seed);
+
+  // Generate fairway along segments
+  fairwaySegments.forEach((segment) => {
+    for (let t = segment.start; t <= segment.end; t += 0.01) {
+      const point = bezierPoint(controlPoints, t);
+      const q = Math.round(point.q);
+      const r = Math.round(point.r);
+      const s = -q - r;
+      const key = `${q},${r},${s}`;
+
+      if (grid[key] === undefined) continue;
+
+      // Check if we're near a control point for landing zones
+      const isLandingZone = controlPoints.some(
+        (cp) => Math.abs(cp.q - q) + Math.abs(cp.r - r) < 2
+      );
+
+      // Add some randomness to fairway width
+      const fairwayVariation = noise2D(t * 5, 0, seed) > 0.7;
+
+      // Basic fairway hex
+      grid[key] = TerrainType.FAIRWAY;
+      processedHexes.add(key);
+
+      // Add wider areas for landing zones and random variations
+      if (isLandingZone || fairwayVariation) {
+        getHexNeighbors({ q, r, s }).forEach((neighbor) => {
+          const nKey = `${neighbor.q},${neighbor.r},${neighbor.s}`;
+          if (grid[nKey] !== undefined && !processedHexes.has(nKey)) {
+            if (noise2D(neighbor.q / 2, neighbor.r / 2, seed) > 0.3) {
+              grid[nKey] = TerrainType.FAIRWAY;
+              processedHexes.add(nKey);
+            }
+          }
+        });
+      }
+    }
+  });
+
+  // Generate green area
+  generateGreen(grid, end);
+
+  // Generate hazards
+  generateHazards(grid, seed);
+
+  // Place tee and hole
+  grid[`${start.q},${start.r},${start.s}`] = TerrainType.TEE;
+  grid[`${end.q},${end.r},${end.s}`] = TerrainType.HOLE;
+
+  return { grid, start, end, seed };
 };
