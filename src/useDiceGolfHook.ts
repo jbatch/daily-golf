@@ -226,6 +226,7 @@ export const useDiceGolf = (initialCourse: CourseState) => {
         gameState.playerPosition,
         course.end
       );
+      console.log({ gameOver });
 
       setGameState((prev) => ({
         ...prev,

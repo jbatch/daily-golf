@@ -7,6 +7,23 @@ import { useDiceGolf } from "./useDiceGolfHook";
 import testCourse from "./testCourse";
 import { useState } from "react";
 
+const scalePolygon = (points: { x: number; y: number }[], scale: number) => {
+  // Calculate center point
+  const center = points.reduce(
+    (acc, point) => ({
+      x: acc.x + point.x / points.length,
+      y: acc.y + point.y / points.length,
+    }),
+    { x: 0, y: 0 }
+  );
+
+  // Scale points around center
+  return points.map((point) => ({
+    x: center.x + (point.x - center.x) * scale,
+    y: center.y + (point.y - center.y) * scale,
+  }));
+};
+
 const DiceGolfGame = () => {
   const [hoveredHex, setHoveredHex] = useState<CubeCoord | null>(null);
   const {
@@ -129,10 +146,12 @@ const DiceGolfGame = () => {
                     />
                     {isValidMove && (
                       <polygon
-                        points={corners.map((p) => `${p.x},${p.y}`).join(" ")}
+                        points={scalePolygon(corners, 0.9)
+                          .map((p) => `${p.x},${p.y}`)
+                          .join(" ")}
                         fill="none"
                         stroke="#ef4444"
-                        strokeWidth="1.5"
+                        strokeWidth="0.5"
                         className="pointer-events-none"
                       />
                     )}
