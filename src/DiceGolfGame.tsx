@@ -10,7 +10,7 @@ import { ShotScore, useGolfScoring } from "./useGolfScoring";
 import ScoreDisplay from "./ScoreDisplay";
 
 const getDayNumber = () => {
-  const start = new Date("2024-01-13").getTime();
+  const start = new Date("2025-01-13").getTime();
   const now = new Date().getTime();
   return Math.floor((now - start) / (1000 * 60 * 60 * 24));
 };
@@ -51,8 +51,13 @@ const DiceGolfGame = () => {
           gameState.lastRoll,
           gameState.playerPosition,
           course.end
-        ).gameOver
+        ).gameOver,
+        gameState.strokes
       );
+      if (!shotScore) {
+        // Out of shots
+        return;
+      }
       setLastShot(shotScore);
 
       // Mark any collected bonuses as used
@@ -71,6 +76,7 @@ const DiceGolfGame = () => {
       course.end,
       gameState.lastRoll,
       gameState.playerPosition,
+      gameState.strokes,
       gameState.validMoves,
       moveToHex,
       recordShot,
@@ -80,9 +86,12 @@ const DiceGolfGame = () => {
   // Show game over dialog when game is complete
   useEffect(() => {
     if (gameState.gameOver) {
-      setShowGameOver(true);
+      console.log(scoreState);
+      setTimeout(() => {
+        setShowGameOver(true);
+      }, 1000);
     }
-  }, [gameState.gameOver]);
+  }, [gameState.gameOver, scoreState]);
 
   const handleNewMap = useCallback(() => {
     const seed = Math.floor(Math.random() * 1000000);
@@ -116,6 +125,7 @@ const DiceGolfGame = () => {
 
             <CourseRenderer
               grid={course.grid}
+              bonuses={course.bonuses}
               validMoves={gameState.validMoves}
               playerPosition={gameState.playerPosition}
               onHexClick={handleMove}
@@ -134,7 +144,7 @@ const DiceGolfGame = () => {
       <GameOverDialog
         isOpen={showGameOver}
         onClose={() => setShowGameOver(false)}
-        score={calculateFinalScore(gameState.mulligansLeft)}
+        score={calculateFinalScore(gameState)}
         mulligansUsed={6 - gameState.mulligansLeft}
         dayNumber={getDayNumber()}
         strokes={gameState.strokes}

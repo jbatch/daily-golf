@@ -178,39 +178,42 @@ export const useDiceGolf = (initialCourse: CourseState) => {
       )
     );
 
-    const getBaseRoll = () => {
+    const getRoll = (bonus: number) => {
       let roll = 0;
       do {
-        roll = Math.floor(Math.random() * 6) + 1;
+        roll = Math.max(1, Math.floor(Math.random() * 6) + 1 + bonus);
       } while (gameState.blockedRolls.includes(roll));
       return roll;
+    };
+
+    const getBonus = (terrain: TerrainType) => {
+      if ([TerrainType.TEE].includes(terrain)) {
+        return 1;
+      }
+      if (terrain === TerrainType.SAND) {
+        return -1;
+      }
+      return 0;
     };
 
     // Final roll
     setTimeout(() => {
       setRolling(false);
 
-      const baseRoll = getBaseRoll();
       const terrainType = getCurrentTerrain();
-      console.log(gameState.blockedRolls, terrainType);
-
-      // Apply terrain modifiers
-      let finalRoll = baseRoll;
-      if ([TerrainType.FAIRWAY, TerrainType.TEE].includes(terrainType))
-        finalRoll += 1;
-      if (terrainType === TerrainType.SAND) finalRoll -= 1;
-      finalRoll = Math.max(1, finalRoll);
+      const bonus = getBonus(terrainType);
+      const roll = getRoll(bonus);
 
       // Calculate valid moves
       const validMoves = calculateValidMoves(
         gameState.playerPosition,
-        finalRoll,
+        roll,
         course
       );
 
       setGameState((prev) => ({
         ...prev,
-        lastRoll: finalRoll,
+        lastRoll: roll,
         validMoves,
       }));
     }, 500);

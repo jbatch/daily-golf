@@ -49,7 +49,7 @@ const GameOverDialog: React.FC<GameOverDialogProps> = ({
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Course Complete! 🎉</AlertDialogTitle>
-          <AlertDialogDescription>
+          <AlertDialogDescription asChild>
             <div className="mt-4 space-y-2">
               <div className="text-xl font-bold">Final Score: {score}</div>
               <div className="space-y-1 text-sm grid grid-cols-2 gap-1">

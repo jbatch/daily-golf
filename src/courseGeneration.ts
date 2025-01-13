@@ -317,7 +317,6 @@ export const generateCourse = (seed: number): CourseState => {
   // Place tee and hole
   grid[`${start.q},${start.r},${start.s}`] = TerrainType.TEE;
   grid[`${end.q},${end.r},${end.s}`] = TerrainType.HOLE;
-  console.log({ bonuses });
 
   return { grid, bonuses, start, end, seed };
 };
