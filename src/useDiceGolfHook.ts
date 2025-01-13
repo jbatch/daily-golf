@@ -6,6 +6,7 @@ export interface GameState {
   strokes: number;
   mulligansLeft: number;
   lastRoll: number | null;
+  blockedRolls: number[];
   validMoves: CubeCoord[];
   gameOver: boolean;
 }
@@ -134,16 +135,6 @@ export const checkGameOver = (
     distToHole === 1 &&
     getHexDistance(playerPosition, end) === distance - 1;
 
-  console.log(
-    `${JSON.stringify({
-      distance,
-      distToHole,
-      end,
-      newPosition,
-      dToHole: getHexDistance(playerPosition, end),
-      isOvershootSink,
-    })}`
-  );
   return { gameOver: isOvershootSink, isOvershootSink };
 };
 
@@ -155,10 +146,21 @@ export const useDiceGolf = (initialCourse: CourseState) => {
     strokes: 0,
     mulligansLeft: 6,
     lastRoll: null,
+    blockedRolls: [],
     validMoves: [],
     gameOver: false,
   }));
   const [rolling, setRolling] = useState(false);
+
+  const getCurrentTerrain = useCallback(() => {
+    const currentHex = `${gameState.playerPosition.q},${gameState.playerPosition.r},${gameState.playerPosition.s}`;
+    return course.grid[currentHex];
+  }, [
+    course.grid,
+    gameState.playerPosition.q,
+    gameState.playerPosition.r,
+    gameState.playerPosition.s,
+  ]);
 
   const rollDice = useCallback(() => {
     if (rolling || gameState.gameOver || gameState.validMoves.length > 0)
@@ -176,18 +178,28 @@ export const useDiceGolf = (initialCourse: CourseState) => {
       )
     );
 
+    const getBaseRoll = () => {
+      let roll = 0;
+      do {
+        roll = Math.floor(Math.random() * 6) + 1;
+      } while (gameState.blockedRolls.includes(roll));
+      return roll;
+    };
+
     // Final roll
     setTimeout(() => {
       setRolling(false);
-      const baseRoll = Math.floor(Math.random() * 6) + 1;
-      const currentHex = `${gameState.playerPosition.q},${gameState.playerPosition.r},${gameState.playerPosition.s}`;
-      const terrainType = course.grid[currentHex];
+
+      const baseRoll = getBaseRoll();
+      const terrainType = getCurrentTerrain();
+      console.log(gameState.blockedRolls, terrainType);
 
       // Apply terrain modifiers
       let finalRoll = baseRoll;
-      if (terrainType === TerrainType.FAIRWAY) finalRoll += 1;
+      if ([TerrainType.FAIRWAY, TerrainType.TEE].includes(terrainType))
+        finalRoll += 1;
       if (terrainType === TerrainType.SAND) finalRoll -= 1;
-      finalRoll = Math.max(1, Math.min(6, finalRoll));
+      finalRoll = Math.max(1, finalRoll);
 
       // Calculate valid moves
       const validMoves = calculateValidMoves(
@@ -202,7 +214,15 @@ export const useDiceGolf = (initialCourse: CourseState) => {
         validMoves,
       }));
     }, 500);
-  }, [course, gameState, rolling]);
+  }, [
+    course,
+    gameState.blockedRolls,
+    gameState.gameOver,
+    gameState.playerPosition,
+    gameState.validMoves.length,
+    getCurrentTerrain,
+    rolling,
+  ]);
 
   const takePutt = useCallback(() => {
     if (gameState.gameOver || gameState.validMoves.length > 0) return;
@@ -240,6 +260,7 @@ export const useDiceGolf = (initialCourse: CourseState) => {
         strokes: prev.strokes + 1,
         validMoves: [],
         lastRoll: null,
+        blockedRolls: [],
         gameOver,
       }));
     },
@@ -264,6 +285,7 @@ export const useDiceGolf = (initialCourse: CourseState) => {
       mulligansLeft: prev.mulligansLeft - 1,
       validMoves: [],
       lastRoll: null,
+      blockedRolls: [...prev.blockedRolls, prev.lastRoll!],
     }));
   }, [gameState.gameOver, gameState.lastRoll, gameState.mulligansLeft]);
 
@@ -273,6 +295,7 @@ export const useDiceGolf = (initialCourse: CourseState) => {
       strokes: 0,
       mulligansLeft: 6,
       lastRoll: null,
+      blockedRolls: [],
       validMoves: [],
       gameOver: false,
     });

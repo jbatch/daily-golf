@@ -27,12 +27,7 @@ export const useGolfScoring = (course: CourseState) => {
   });
 
   const calculateShotScore = useCallback(
-    (
-      from: CubeCoord,
-      to: CubeCoord,
-      roll: number | null,
-      isGameOver: boolean
-    ): ShotScore => {
+    (from: CubeCoord, to: CubeCoord, isGameOver: boolean): ShotScore => {
       const shotScore: ShotScore = {
         points: 0,
         bonusesCollected: [],
@@ -59,7 +54,7 @@ export const useGolfScoring = (course: CourseState) => {
       }
 
       // Check for long putt
-      if (isGameOver && roll === 1) {
+      if (isGameOver) {
         const distance = getHexDistance(from, to);
         if (distance >= 3) {
           shotScore.points += distance * 100;
@@ -97,13 +92,8 @@ export const useGolfScoring = (course: CourseState) => {
   );
 
   const recordShot = useCallback(
-    (
-      from: CubeCoord,
-      to: CubeCoord,
-      roll: number | null,
-      isGameOver: boolean
-    ) => {
-      const shotScore = calculateShotScore(from, to, roll, isGameOver);
+    (from: CubeCoord, to: CubeCoord, isGameOver: boolean) => {
+      const shotScore = calculateShotScore(from, to, isGameOver);
 
       setScoreState((prev) => {
         // Update streak
@@ -133,7 +123,7 @@ export const useGolfScoring = (course: CourseState) => {
 
   const calculateFinalScore = useCallback(
     (mulligansLeft: number) => {
-      const mulliganBonus = mulligansLeft * 100;
+      const mulliganBonus = mulligansLeft * 200;
       return scoreState.totalScore + mulliganBonus;
     },
     [scoreState.totalScore]

@@ -56,8 +56,8 @@ const GameOverDialog: React.FC<GameOverDialogProps> = ({
                 <div>Strokes:</div>
                 <div className="text-right">{strokes}</div>
 
-                <div>Mulligans Used:</div>
-                <div className="text-right">{mulligansUsed}/6</div>
+                <div>Mulligans Remaining:</div>
+                <div className="text-right">{6 - mulligansUsed}/6</div>
 
                 <div>Skill Shots:</div>
                 <div className="text-right">{skillShots}</div>

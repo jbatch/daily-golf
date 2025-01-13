@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { CubeCoord } from "./types";
 import { checkGameOver, isValidMove, useDiceGolf } from "./useDiceGolfHook";
@@ -26,15 +26,18 @@ const DiceGolfGame = () => {
   const [hoveredHex, setHoveredHex] = useState<CubeCoord | null>(null);
   const [lastShot, setLastShot] = useState<ShotScore | null>(null);
   const [showGameOver, setShowGameOver] = useState(false);
+
+  const initialCourse = useMemo(() => generateCourse(getDateSeed()), []);
   const {
     actions: { rollDice, moveToHex, useMulligan, takePutt },
     course,
     gameState,
     rolling,
     resetGame,
-  } = useDiceGolf(generateCourse(getDateSeed()));
+  } = useDiceGolf(initialCourse);
 
-  const { scoreState, recordShot } = useGolfScoring(course);
+  const { scoreState, recordShot, calculateFinalScore } =
+    useGolfScoring(course);
 
   const handleMove = useCallback(
     (coord: CubeCoord) => {
@@ -43,7 +46,6 @@ const DiceGolfGame = () => {
       const shotScore = recordShot(
         gameState.playerPosition,
         coord,
-        gameState.lastRoll,
         checkGameOver(
           coord,
           gameState.lastRoll,
@@ -132,12 +134,15 @@ const DiceGolfGame = () => {
       <GameOverDialog
         isOpen={showGameOver}
         onClose={() => setShowGameOver(false)}
-        score={gameState.strokes}
+        score={calculateFinalScore(gameState.mulligansLeft)}
         mulligansUsed={6 - gameState.mulligansLeft}
         dayNumber={getDayNumber()}
         strokes={gameState.strokes}
-        skillShots={0}
-        bonusesCollected={0}
+        skillShots={scoreState.shotHistory.reduce(
+          (count, shot) => count + (shot.isSkillShot ? 1 : 0),
+          0
+        )}
+        bonusesCollected={scoreState.collectedBonuses.size}
       />
     </div>
   );
