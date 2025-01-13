@@ -12,6 +12,19 @@ export enum TerrainType {
   GREEN = 8,
 }
 
+export enum BonusType {
+  MULTIPLIER_2X = "2x",
+  MULTIPLIER_3X = "3x",
+  POINTS_500 = "points500",
+  EXTRA_MULLIGAN = "mulligan",
+}
+
+export interface Bonus {
+  type: BonusType;
+  value: number;
+  used: boolean;
+}
+
 export const TerrainColors: Record<TerrainType, string> = {
   [TerrainType.EMPTY]: "#f3f4f6",
   [TerrainType.FAIRWAY]: "#86efac",
@@ -37,6 +50,7 @@ export interface Point {
 
 export interface CourseState {
   grid: Record<string, TerrainType>;
+  bonuses: Record<string, Bonus>;
   start: CubeCoord;
   end: CubeCoord;
   seed: number;

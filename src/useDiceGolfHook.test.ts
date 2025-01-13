@@ -53,6 +53,7 @@ const createMockCourse = (): CourseState => ({
     "3,-1,-2": TerrainType.ROUGH,
     "3,0,-3": TerrainType.ROUGH,
   },
+  bonuses: {},
   start: { q: 0, r: 0, s: 0 },
   end: { q: 2, r: -1, s: -1 },
   seed: 12345,
