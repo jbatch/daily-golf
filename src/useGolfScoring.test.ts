@@ -60,7 +60,8 @@ describe("useGolfScoring Hook", () => {
       { q: 0, r: 0, s: 0 },
       { q: 1, r: -1, s: 0 },
       false,
-      1
+      1,
+      0
     );
 
     expect(shotScore?.points).toBe(100); // Base points for a regular shot
@@ -75,7 +76,8 @@ describe("useGolfScoring Hook", () => {
       { q: 1, r: -1, s: 0 },
       { q: 3, r: 1, s: -4 },
       false,
-      1
+      1,
+      0
     );
 
     expect(shotScore?.points).toBe(350); // 100 base + 250 water carry
@@ -89,7 +91,8 @@ describe("useGolfScoring Hook", () => {
       { q: 1, r: 0, s: -1 },
       { q: 4, r: 0, s: -4 },
       true, // Game over (sunk putt)
-      1
+      1,
+      0
     );
 
     expect(shotScore?.points).toBeGreaterThan(100); // Base + long putt bonus
@@ -106,7 +109,8 @@ describe("useGolfScoring Hook", () => {
         { q: 1, r: 0, s: -1 },
         { q: 2, r: 0, s: -2 },
         false,
-        1
+        1,
+        0
       )
     );
 
@@ -119,7 +123,8 @@ describe("useGolfScoring Hook", () => {
         { q: 2, r: 0, s: -2 },
         { q: 3, r: 0, s: -3 },
         false,
-        2
+        2,
+        0
       )
     );
 
@@ -135,7 +140,8 @@ describe("useGolfScoring Hook", () => {
         { q: 1, r: -1, s: 0 },
         { q: 3, r: 1, s: -4 },
         false,
-        1
+        1,
+        0
       );
     });
 
@@ -147,7 +153,8 @@ describe("useGolfScoring Hook", () => {
         { q: 3, r: 1, s: -4 },
         { q: 1, r: -1, s: 0 },
         false,
-        2
+        2,
+        0
       );
     });
 
@@ -158,19 +165,10 @@ describe("useGolfScoring Hook", () => {
   it("calculates final score correctly", () => {
     const { result } = renderHook(() => useGolfScoring(mockCourse));
 
-    // Simulate completing course in par
-    const gameState = {
-      playerPosition: mockCourse.end,
-      strokes: result.current.par,
-      mulligansLeft: 4,
-      lastRoll: null,
-      blockedRolls: [],
-      validMoves: [],
-      gameOver: true,
-      isPutting: false,
-    };
-
-    const finalScore = result.current.calculateFinalScore(gameState);
+    const finalScore = result.current.calculateFinalScore(
+      result.current.par,
+      4
+    );
 
     // Should include:
     // - Base score (0)
@@ -187,7 +185,8 @@ describe("useGolfScoring Hook", () => {
       { q: 0, r: 0, s: 0 },
       { q: 1, r: 0, s: -1 },
       false,
-      maxShots + 1
+      maxShots + 1,
+      0
     );
 
     expect(shotScore).toBeNull();

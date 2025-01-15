@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from "react";
 import { CubeCoord, CourseState, TerrainType, BonusType } from "./types";
-import { GameState, getHexDistance, getHexesInLine } from "./useDiceGolfHook";
+import { getHexDistance, getHexesInLine } from "./useDiceGolfHook";
 
 export interface ShotScore {
   points: number;
@@ -16,6 +16,7 @@ export interface ScoreState {
   collectedBonuses: Set<string>;
   skillShotStreak: number;
   strokesOverPar: number;
+  par: number;
 }
 
 const calculatePar = (course: CourseState): number => {
@@ -42,6 +43,7 @@ export const useGolfScoring = (course: CourseState) => {
     collectedBonuses: new Set(),
     skillShotStreak: 0,
     strokesOverPar: 0,
+    par,
   });
 
   const calculateShotScore = useCallback(
@@ -117,24 +119,42 @@ export const useGolfScoring = (course: CourseState) => {
     ]
   );
 
+  const calculateFinalScore = useCallback(
+    (strokes: number, mulligansLeft: number) => {
+      const mulliganBonus = mulligansLeft * 200;
+
+      // Par bonus calculation
+      let parBonus = 0;
+      if (strokes <= par) {
+        // Significant bonus for being under or at par
+        const strokesUnderPar = par - strokes;
+        parBonus = 2000 + strokesUnderPar * 1000; // 2000 for par, +1000 per stroke under
+      } else {
+        // Penalty for being over par
+        const strokesOverPar = strokes - par;
+        parBonus = -500 * strokesOverPar; // -500 points per stroke over par
+      }
+
+      const finalScore = scoreState.totalScore + mulliganBonus + parBonus;
+      return finalScore;
+    },
+    [par, scoreState.totalScore]
+  );
+
   const recordShot = useCallback(
     (
       from: CubeCoord,
       to: CubeCoord,
-      isGameOver: boolean,
-      currentStrokes: number
+      gameOverShot: boolean,
+      strokes: number,
+      mulligansLeft: number
     ) => {
       // Check if we've exceeded maximum shots
-      if (currentStrokes >= MAX_SHOTS(par)) {
+      if (strokes >= MAX_SHOTS(par)) {
         return null; // Indicate shot limit reached
       }
 
-      const shotScore = calculateShotScore(
-        from,
-        to,
-        isGameOver,
-        currentStrokes
-      );
+      const shotScore = calculateShotScore(from, to, gameOverShot, strokes);
 
       // Update streak
       const newStreak = shotScore.isSkillShot
@@ -157,13 +177,21 @@ export const useGolfScoring = (course: CourseState) => {
         shotHistory: [...scoreState.shotHistory, shotScore],
         collectedBonuses: newCollectedBonuses,
         skillShotStreak: newStreak,
-        strokesOverPar: Math.max(0, currentStrokes - par),
+        strokesOverPar: Math.max(0, strokes - par),
+        par,
       };
+
+      if (gameOverShot) {
+        const updatedTotal = calculateFinalScore(strokes, mulligansLeft);
+        newScore.totalScore = updatedTotal;
+      }
+
       setScoreState(newScore);
 
       return shotScore;
     },
     [
+      calculateFinalScore,
       calculateShotScore,
       par,
       scoreState.collectedBonuses,
@@ -171,31 +199,6 @@ export const useGolfScoring = (course: CourseState) => {
       scoreState.skillShotStreak,
       scoreState.totalScore,
     ]
-  );
-
-  const calculateFinalScore = useCallback(
-    (gameState: GameState) => {
-      if (!gameState.gameOver) {
-        return 0;
-      }
-      const { mulligansLeft, strokes } = gameState;
-      const mulliganBonus = mulligansLeft * 200;
-
-      // Par bonus calculation
-      let parBonus = 0;
-      if (strokes <= par) {
-        // Significant bonus for being under or at par
-        const strokesUnderPar = par - strokes;
-        parBonus = 2000 + strokesUnderPar * 1000; // 2000 for par, +1000 per stroke under
-      } else {
-        // Penalty for being over par
-        const strokesOverPar = strokes - par;
-        parBonus = -500 * strokesOverPar; // -500 points per stroke over par
-      }
-
-      return scoreState.totalScore + mulliganBonus + parBonus;
-    },
-    [par, scoreState.totalScore]
   );
 
   return {

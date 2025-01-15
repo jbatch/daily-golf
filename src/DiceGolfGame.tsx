@@ -41,51 +41,37 @@ const DiceGolfGame = () => {
     resetGame,
   } = useDiceGolf(initialCourse);
 
-  const { scoreState, recordShot, calculateFinalScore } =
-    useGolfScoring(course);
+  const { scoreState, recordShot } = useGolfScoring(course);
 
   const handleMove = useCallback(
     (coord: CubeCoord) => {
       if (!isValidMove(coord, gameState.validMoves)) return;
 
+      // Check if this shot finishes the hole before calculating score
+      const gameOverShot = checkGameOver(
+        coord,
+        gameState.lastRoll,
+        gameState.playerPosition,
+        course.end
+      ).gameOver;
+
       const shotScore = recordShot(
         gameState.playerPosition,
         coord,
-        checkGameOver(
-          coord,
-          gameState.lastRoll,
-          gameState.playerPosition,
-          course.end
-        ).gameOver,
-        gameState.strokes
+        gameOverShot,
+        gameState.strokes,
+        gameState.mulligansLeft
       );
+
       if (!shotScore) {
         // Out of shots
         return;
       }
       setLastShot(shotScore);
 
-      // Mark any collected bonuses as used
-      if (shotScore.bonusesCollected.length > 0) {
-        shotScore.bonusesCollected.forEach((key) => {
-          if (course.bonuses[key]) {
-            course.bonuses[key].used = true;
-          }
-        });
-      }
-
       moveToHex(coord);
     },
-    [
-      course.bonuses,
-      course.end,
-      gameState.lastRoll,
-      gameState.playerPosition,
-      gameState.strokes,
-      gameState.validMoves,
-      moveToHex,
-      recordShot,
-    ]
+    [course.end, gameState, moveToHex, recordShot]
   );
 
   // Show game over dialog when game is complete
@@ -118,11 +104,13 @@ const DiceGolfGame = () => {
               onCancelPutt={cancelPutt}
               onMulligan={useMulligan}
               onNewMap={handleNewMap}
+              onViewResults={() => setShowGameOver(true)}
               gameOver={gameState.gameOver}
               rolling={rolling}
               hasValidMoves={gameState.validMoves.length > 0}
               mulligansLeft={gameState.mulligansLeft}
               strokes={gameState.strokes}
+              par={scoreState.par}
               lastRoll={gameState.lastRoll}
               isNearHole={
                 getHexDistance(gameState.playerPosition, course.end) === 1
@@ -153,7 +141,7 @@ const DiceGolfGame = () => {
       <GameOverDialog
         isOpen={showGameOver}
         onClose={() => setShowGameOver(false)}
-        score={calculateFinalScore(gameState)}
+        score={scoreState.totalScore}
         mulligansUsed={6 - gameState.mulligansLeft}
         dayNumber={getDayNumber()}
         strokes={gameState.strokes}
