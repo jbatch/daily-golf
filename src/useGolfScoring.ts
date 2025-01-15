@@ -17,6 +17,8 @@ export interface ScoreState {
   skillShotStreak: number;
   strokesOverPar: number;
   par: number;
+  mulliganBonus: number;
+  parBonus: number;
 }
 
 const calculatePar = (course: CourseState): number => {
@@ -44,6 +46,8 @@ export const useGolfScoring = (course: CourseState) => {
     skillShotStreak: 0,
     strokesOverPar: 0,
     par,
+    mulliganBonus: 0,
+    parBonus: 0,
   });
 
   const calculateShotScore = useCallback(
@@ -135,10 +139,9 @@ export const useGolfScoring = (course: CourseState) => {
         parBonus = -500 * strokesOverPar; // -500 points per stroke over par
       }
 
-      const finalScore = scoreState.totalScore + mulliganBonus + parBonus;
-      return finalScore;
+      return { mulliganBonus, parBonus };
     },
-    [par, scoreState.totalScore]
+    [par]
   );
 
   const recordShot = useCallback(
@@ -170,7 +173,8 @@ export const useGolfScoring = (course: CourseState) => {
       const newCollectedBonuses = new Set(scoreState.collectedBonuses);
       shotScore.bonusesCollected.forEach((b) => newCollectedBonuses.add(b));
 
-      const newScore = {
+      const newScore: ScoreState = {
+        ...scoreState,
         totalScore:
           scoreState.totalScore + shotScore.points * shotScore.multiplier,
         currentMultiplier: newMultiplier,
@@ -182,29 +186,25 @@ export const useGolfScoring = (course: CourseState) => {
       };
 
       if (gameOverShot) {
-        const updatedTotal = calculateFinalScore(strokes, mulligansLeft);
-        newScore.totalScore = updatedTotal;
+        const { mulliganBonus, parBonus } = calculateFinalScore(
+          strokes + 1,
+          mulligansLeft
+        );
+        newScore.totalScore = newScore.totalScore + mulliganBonus + parBonus;
+        newScore.mulliganBonus = mulliganBonus;
+        newScore.parBonus = parBonus;
       }
 
       setScoreState(newScore);
 
       return shotScore;
     },
-    [
-      calculateFinalScore,
-      calculateShotScore,
-      par,
-      scoreState.collectedBonuses,
-      scoreState.shotHistory,
-      scoreState.skillShotStreak,
-      scoreState.totalScore,
-    ]
+    [calculateFinalScore, calculateShotScore, par, scoreState]
   );
 
   return {
     scoreState,
     recordShot,
-    calculateFinalScore,
     par,
     maxShots: MAX_SHOTS(par),
   };

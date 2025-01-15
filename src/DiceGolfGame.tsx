@@ -139,17 +139,12 @@ const DiceGolfGame = () => {
       </Card>
 
       <GameOverDialog
-        isOpen={showGameOver}
         onClose={() => setShowGameOver(false)}
-        score={scoreState.totalScore}
-        mulligansUsed={6 - gameState.mulligansLeft}
+        isOpen={showGameOver}
         dayNumber={getDayNumber()}
+        mulligansRemaining={gameState.mulligansLeft}
         strokes={gameState.strokes}
-        skillShots={scoreState.shotHistory.reduce(
-          (count, shot) => count + (shot.isSkillShot ? 1 : 0),
-          0
-        )}
-        bonusesCollected={scoreState.collectedBonuses.size}
+        score={scoreState}
       />
     </div>
   );
