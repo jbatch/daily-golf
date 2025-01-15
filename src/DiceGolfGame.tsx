@@ -86,7 +86,6 @@ const DiceGolfGame = () => {
   // Show game over dialog when game is complete
   useEffect(() => {
     if (gameState.gameOver) {
-      console.log(scoreState);
       setTimeout(() => {
         setShowGameOver(true);
       }, 1000);

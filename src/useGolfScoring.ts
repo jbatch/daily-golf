@@ -149,6 +149,7 @@ export const useGolfScoring = (course: CourseState) => {
       // Add collected bonuses to the set
       const newCollectedBonuses = new Set(scoreState.collectedBonuses);
       shotScore.bonusesCollected.forEach((b) => newCollectedBonuses.add(b));
+
       const newScore = {
         totalScore:
           scoreState.totalScore + shotScore.points * shotScore.multiplier,
