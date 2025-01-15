@@ -39,7 +39,7 @@ const GameOverDialog: React.FC<GameOverDialogProps> = ({
       `Mulligans: ${6 - mulligansUsed}/6\n` +
       `Skill Shots: ${skillShots}\n` +
       `Bonuses: ${bonusesCollected}\n` +
-      `https://dailygolf.game`;
+      `https://golf.jbat.ch`;
 
     navigator.clipboard.writeText(shareText);
   };
