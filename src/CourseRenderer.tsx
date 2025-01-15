@@ -118,6 +118,7 @@ const CourseRenderer: React.FC<CourseRendererProps> = ({
               onClick={() => onHexClick({ q, r, s: -q - r })}
               onMouseEnter={() => onHexHover({ q, r, s })}
               onMouseLeave={() => onHexHover(null)}
+              className={isValidMove ? "cursor-pointer" : "cursor-default"}
             >
               {/* Base hex tile */}
               <polygon
