@@ -167,6 +167,7 @@ describe("useGolfScoring Hook", () => {
       blockedRolls: [],
       validMoves: [],
       gameOver: true,
+      isPutting: false,
     };
 
     const finalScore = result.current.calculateFinalScore(gameState);

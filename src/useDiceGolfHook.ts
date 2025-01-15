@@ -9,6 +9,7 @@ export interface GameState {
   blockedRolls: number[];
   validMoves: CubeCoord[];
   gameOver: boolean;
+  isPutting: boolean;
 }
 
 // Pure functions for game logic
@@ -149,6 +150,7 @@ export const useDiceGolf = (initialCourse: CourseState) => {
     blockedRolls: [],
     validMoves: [],
     gameOver: false,
+    isPutting: false,
   }));
   const [rolling, setRolling] = useState(false);
 
@@ -235,7 +237,7 @@ export const useDiceGolf = (initialCourse: CourseState) => {
 
     setGameState((prev) => ({
       ...prev,
-      lastRoll: 1,
+      isPutting: true,
       validMoves,
     }));
   }, [
@@ -244,6 +246,18 @@ export const useDiceGolf = (initialCourse: CourseState) => {
     gameState.validMoves.length,
     gameState.playerPosition,
   ]);
+
+  const cancelPutt = useCallback(() => {
+    if (gameState.gameOver) return;
+
+    const validMoves: CubeCoord[] = [];
+
+    setGameState((prev) => ({
+      ...prev,
+      isPutting: false,
+      validMoves,
+    }));
+  }, [gameState.gameOver]);
 
   const moveToHex = useCallback(
     (coord: CubeCoord) => {
@@ -301,6 +315,7 @@ export const useDiceGolf = (initialCourse: CourseState) => {
       blockedRolls: [],
       validMoves: [],
       gameOver: false,
+      isPutting: false,
     });
     setCourse(newCourse);
   }, []);
@@ -315,6 +330,7 @@ export const useDiceGolf = (initialCourse: CourseState) => {
       moveToHex,
       useMulligan,
       takePutt,
+      cancelPutt,
     },
   };
 };

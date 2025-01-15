@@ -1,7 +1,12 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { CubeCoord } from "./types";
-import { checkGameOver, isValidMove, useDiceGolf } from "./useDiceGolfHook";
+import {
+  checkGameOver,
+  getHexDistance,
+  isValidMove,
+  useDiceGolf,
+} from "./useDiceGolfHook";
 import { generateCourse } from "./courseGeneration";
 import GameControls from "./GameControls";
 import CourseRenderer from "./CourseRenderer";
@@ -29,7 +34,7 @@ const DiceGolfGame = () => {
 
   const initialCourse = useMemo(() => generateCourse(getDateSeed()), []);
   const {
-    actions: { rollDice, moveToHex, useMulligan, takePutt },
+    actions: { rollDice, moveToHex, useMulligan, takePutt, cancelPutt },
     course,
     gameState,
     rolling,
@@ -110,6 +115,7 @@ const DiceGolfGame = () => {
             <GameControls
               onRoll={rollDice}
               onPutt={takePutt}
+              onCancelPutt={cancelPutt}
               onMulligan={useMulligan}
               onNewMap={handleNewMap}
               gameOver={gameState.gameOver}
@@ -118,6 +124,10 @@ const DiceGolfGame = () => {
               mulligansLeft={gameState.mulligansLeft}
               strokes={gameState.strokes}
               lastRoll={gameState.lastRoll}
+              isNearHole={
+                getHexDistance(gameState.playerPosition, course.end) === 1
+              }
+              isPutting={gameState.isPutting}
             />
 
             <ScoreDisplay scoreState={scoreState} lastShot={lastShot} />
